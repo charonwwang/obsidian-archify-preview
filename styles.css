@@ -1,0 +1,160 @@
+/* obsidian-archify-preview —— 跟随 Obsidian 主题变量 */
+
+/* ---------- 笔记内的"缩略图套 html 链接"卡片 ---------- */
+
+.archify-linked-html {
+	position: relative;
+	display: inline-block;
+	cursor: pointer;
+}
+
+.archify-badge {
+	position: absolute;
+	right: 8px;
+	bottom: 8px;
+	padding: 4px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	line-height: 1;
+	color: #fff;
+	background: rgba(0, 0, 0, 0.55);
+	opacity: 0;
+	transition: opacity 0.15s ease;
+	pointer-events: none;
+}
+
+.archify-linked-html:hover .archify-badge {
+	opacity: 1;
+}
+
+/* ---------- 工具条与按钮（各表面共用） ---------- */
+
+.archify-toolbar {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	justify-content: flex-end; /* 按钮一律靠右 */
+	padding: 6px 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+
+.archify-toolbar .archify-path {
+	flex: 1;
+	margin-right: auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.archify-btn {
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+	color: var(--text-normal);
+	background: var(--interactive-normal);
+	box-shadow: var(--input-shadow, none);
+	border: none;
+	border-radius: 6px;
+	padding: 4px 10px;
+	cursor: pointer;
+}
+
+.archify-btn:hover {
+	background: var(--interactive-hover);
+}
+
+.archify-btn:active {
+	background: var(--interactive-active);
+}
+
+/* ---------- 缩放手柄 ---------- */
+
+.archify-resize-handle {
+	position: absolute;
+	right: 2px;
+	bottom: 2px;
+	width: 16px;
+	height: 16px;
+	cursor: nwse-resize;
+	background: linear-gradient(135deg, transparent 55%, var(--text-faint) 55%);
+	border-bottom-right-radius: 8px;
+	z-index: 2;
+}
+
+/* 拖拽/缩放进行中：让开 iframe，避免它吞掉指针事件 */
+.archify-interacting .archify-html-frame {
+	pointer-events: none;
+}
+
+/* ---------- 内联展开 ---------- */
+
+.archify-inline-wrap {
+	margin: 8px 0;
+}
+
+.archify-inline-wrap .archify-toolbar {
+	padding: 2px 4px;
+	background: transparent;
+	border-bottom: none;
+}
+
+.archify-inline-wrap .archify-html-frame {
+	width: 100%;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px 8px 0 0;
+	background: var(--background-primary);
+}
+
+/* 底部拖拽条：上下拖动调节高度（自动记忆） */
+.archify-inline-grip {
+	height: 8px;
+	cursor: ns-resize;
+	border: 1px solid var(--background-modifier-border);
+	border-top: none;
+	border-radius: 0 0 8px 8px;
+	background: var(--background-secondary);
+}
+
+.archify-inline-grip:hover {
+	background: var(--background-modifier-border-hover);
+}
+
+/* ---------- 自定义视图（新标签页） ---------- */
+
+.archify-preview-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 0;
+}
+
+.archify-preview-view .archify-html-frame {
+	flex: 1;
+	width: 100%;
+	border: none;
+	background: var(--background-primary);
+}
+
+/* ---------- 模态窗 ---------- */
+
+.archify-frame-box {
+	position: relative;
+	display: block;
+}
+
+.archify-frame-box .archify-html-frame {
+	width: min(1280px, 80vw);
+	height: 75vh;
+	border: none;
+	border-radius: 8px;
+	background: var(--background-primary);
+}
+
+.archify-preview-modal .archify-toolbar {
+	background: transparent;
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding: 4px 2px;
+}

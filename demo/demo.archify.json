@@ -1,0 +1,44 @@
+{
+  "archify": "0.1",
+  "type": "architecture",
+  "title": "System Architecture",
+  "description": "Sample Archify source definition bundled with the demo. In real usage this file is produced by the Archify skill and edited to regenerate the diagram.",
+  "theme": "light",
+  "layers": [
+    {
+      "id": "client",
+      "label": "Client Layer",
+      "nodes": ["Web", "iOS", "Android"]
+    },
+    {
+      "id": "gateway",
+      "label": "API Gateway",
+      "nodes": ["auth", "rate-limit", "routing"]
+    },
+    {
+      "id": "services",
+      "label": "Service Mesh",
+      "nodes": ["orders", "users", "billing"]
+    },
+    {
+      "id": "data",
+      "label": "Primary Database",
+      "nodes": ["OLTP", "replicas"]
+    },
+    {
+      "id": "async",
+      "label": "Event / Cache Tier",
+      "nodes": ["Redis", "event bus"]
+    }
+  ],
+  "flows": [
+    ["client", "gateway"],
+    ["gateway", "services"],
+    ["gateway", "data"],
+    ["gateway", "async"]
+  ],
+  "artifacts": {
+    "html": "demo.html",
+    "visualCheck": "demo.visual-check.1440x900.light.png"
+  }
+}
