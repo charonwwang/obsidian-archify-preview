@@ -218,8 +218,7 @@ export default class ArchifyHtmlPreviewPlugin extends Plugin {
 			return;
 		}
 
-		const wrap = document.createElement("div");
-		wrap.addClass("archify-inline-wrap");
+		const wrap = createDiv({ cls: "archify-inline-wrap" });
 		host.insertAdjacentElement("afterend", wrap);
 
 		const child = new InlineFrameChild(wrap, this, target);
@@ -236,7 +235,8 @@ export default class ArchifyHtmlPreviewPlugin extends Plugin {
 	// ------------------------------------------------------------------
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = (await this.loadData()) as Partial<ArchifyHtmlPreviewSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
 		// The floating-window mode was removed; fall back to the modal.
 		if ((this.settings.openMode as string) === "float") {
 			this.settings.openMode = "modal";

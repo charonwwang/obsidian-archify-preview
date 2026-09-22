@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -24,11 +26,13 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package
-        run: |
-          mkdir "${{ github.event.repository.name }}"
-          cp main.js manifest.json styles.css "${{ github.event.repository.name }}/"
-          zip -r "${{ github.event.repository.name }}.zip" "${{ github.event.repository.name }}"
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
 
       - name: Create release
         env:
@@ -36,7 +40,6 @@ jobs:
         run: |
           tag="${GITHUB_REF#refs/tags/}"
           gh release create "$tag" \
-            "${{ github.event.repository.name }}.zip" \
             main.js manifest.json styles.css \
             --title "$tag" \
             --notes "Release $tag"

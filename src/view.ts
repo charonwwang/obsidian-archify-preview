@@ -54,6 +54,40 @@ function injectRuntimeShim(html: string): string {
 	return shim + html;
 }
 
+/** Shape of the `postMessage` requests sent by the sandboxed shim. */
+interface ClipboardRequest {
+	archifyClipboardWrite?: unknown;
+	text?: unknown;
+}
+
+/**
+ * Best-effort clipboard write. `navigator.clipboard` first; `execCommand` is
+ * kept as a fallback because the Clipboard API rejects without a user gesture
+ * in the calling document, while sandboxed-frame copy requests arrive via
+ * `postMessage` and have no gesture in this frame.
+ */
+async function writeClipboard(text: string): Promise<boolean> {
+	try {
+		if (navigator.clipboard?.writeText) {
+			await navigator.clipboard.writeText(text);
+			return true;
+		}
+	} catch {
+		// fall through to the execCommand fallback
+	}
+	try {
+		const ta = document.body.createEl("textarea", { cls: "archify-clip-input" });
+		ta.value = text;
+		ta.select();
+		// eslint-disable-next-line @typescript-eslint/no-deprecated -- gesture-less copy fallback for sandboxed frames
+		const ok = document.execCommand("copy");
+		ta.remove();
+		return !!ok;
+	} catch {
+		return false;
+	}
+}
+
 /**
  * Answer clipboard requests coming from sandboxed preview frames. Runs in the
  * plugin frame, which has real clipboard access. Install once per plugin load.
@@ -63,39 +97,17 @@ export function installClipboardBridge(): void {
 	if (clipboardBridgeInstalled) return;
 	clipboardBridgeInstalled = true;
 	window.addEventListener("message", (ev) => {
-		const d = ev.data;
+		const d = ev.data as ClipboardRequest | null;
 		if (!d || typeof d.archifyClipboardWrite !== "string") return;
 		// Only serve opaque-origin (sandboxed) senders.
 		if (ev.origin !== "null") return;
 		const id = d.archifyClipboardWrite;
-		const text = String(d.text ?? "");
+		const text = typeof d.text === "string" ? d.text : "";
+		const source = ev.source as Window | null;
 		const reply = (ok: boolean, error?: string) => {
-			(ev.source as Window | null)?.postMessage({ archifyClipboard: id, ok, error }, "*");
+			source?.postMessage({ archifyClipboard: id, ok, error }, "*");
 		};
-		void (async () => {
-			try {
-				if (navigator.clipboard?.writeText) {
-					await navigator.clipboard.writeText(text);
-					reply(true);
-					return;
-				}
-			} catch {
-				// fall through to the legacy path
-			}
-			try {
-				const ta = document.createElement("textarea");
-				ta.value = text;
-				ta.style.position = "fixed";
-				ta.style.opacity = "0";
-				document.body.appendChild(ta);
-				ta.select();
-				const ok = document.execCommand("copy");
-				ta.remove();
-				reply(!!ok, ok ? undefined : "execCommand failed");
-			} catch (e) {
-				reply(false, String(e));
-			}
-		})();
+		void writeClipboard(text).then((ok) => reply(ok, ok ? undefined : "copy failed"));
 	});
 }
 
@@ -112,8 +124,7 @@ export async function createSandboxedFrame(plugin: ArchifyHtmlPreviewPlugin, fil
 	const blob = new Blob([content], { type: "text/html" });
 	const url = URL.createObjectURL(blob);
 
-	const frame = document.createElement("iframe");
-	frame.addClass("archify-html-frame");
+	const frame = createEl("iframe", { cls: "archify-html-frame" });
 	// Sandbox tokens: keep the origin opaque (unless the user opts out) while
 	// unblocking everything an interactive artifact legitimately needs —
 	// exports (downloads), share links (popups / windows that escape the
@@ -180,7 +191,7 @@ export async function openInSystemBrowser(app: App, file: TFile): Promise<void> 
 	// Silent on success. On failure the path is copied so the user can still
 	// paste it into a browser manually.
 	if (!ok) {
-		await copyText(fsPath || file.path);
+		await writeClipboard(fsPath || file.path);
 		new Notice(t("notice.openFailed", file.name));
 	}
 }
@@ -196,13 +207,13 @@ export async function openInSystemBrowser(app: App, file: TFile): Promise<void> 
  */
 function openViaChildProcess(fsPath: string): boolean {
 	try {
-		const req: NodeRequire | undefined =
-			typeof require === "function" ? require : (window as unknown as { require?: NodeRequire }).require;
+		const req = getRendererRequire();
 		if (!req) return false;
-		const cp = req("child_process") as {
-			spawn: (cmd: string, args: string[], opts?: Record<string, unknown>) => { unref?: () => void };
-		};
-		const fsMod = req("fs") as { existsSync: (p: string) => boolean };
+		const cp = req("child_process") as
+			| { spawn: (cmd: string, args: string[], opts?: Record<string, unknown>) => { unref?: () => void } }
+			| undefined;
+		const fsMod = req("fs") as { existsSync: (p: string) => boolean } | undefined;
+		if (!cp || !fsMod) return false;
 		const url = "file:///" + encodeURI(fsPath.replace(/\\/g, "/"));
 
 		const spawnDetached = (exe: string, args: string[]): boolean => {
@@ -225,9 +236,10 @@ function openViaChildProcess(fsPath: string): boolean {
 			return null;
 		};
 
-		switch (process.platform) {
+		const proc = getRendererProcess();
+		switch (proc?.platform) {
 			case "win32": {
-				const la = process.env.LOCALAPPDATA ?? "";
+				const la = proc?.env?.LOCALAPPDATA ?? "";
 				const exe =
 					firstExisting([
 						"C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -305,35 +317,37 @@ export async function openInObsidianWindow(app: App, file: TFile): Promise<void>
 	}
 }
 
-/** Best-effort clipboard write (used as a fallback for external opening). */
-async function copyText(text: string): Promise<void> {
-	try {
-		if (navigator.clipboard?.writeText) {
-			await navigator.clipboard.writeText(text);
-			return;
-		}
-	} catch {
-		// fall back below
-	}
-	try {
-		const ta = document.createElement("textarea");
-		ta.value = text;
-		ta.style.position = "fixed";
-		ta.style.opacity = "0";
-		document.body.appendChild(ta);
-		ta.select();
-		document.execCommand("copy");
-		ta.remove();
-	} catch {
-		// give up silently
-	}
+interface ShellBridge {
+	openExternal?: (u: string) => unknown;
+	openPath?: (p: string) => unknown;
 }
 
-function getShell(): { openExternal?: (u: string) => unknown; openPath?: (p: string) => unknown } | null {
+/** Minimal shape of the renderer `process` object exposed by the desktop app. */
+interface RendererProcess {
+	platform?: string;
+	env?: Record<string, string | undefined>;
+}
+
+/**
+ * Typed accessor for the Node `require` exposed by the desktop runtime.
+ * Resolved through `globalThis` so the code type-checks without Node typings
+ * and never produces `any`-typed calls.
+ */
+function getRendererRequire(): ((id: string) => unknown) | undefined {
+	const g = globalThis as unknown as { require?: (id: string) => unknown };
+	return typeof g.require === "function" ? g.require : undefined;
+}
+
+function getRendererProcess(): RendererProcess | undefined {
+	return (globalThis as unknown as { process?: RendererProcess }).process;
+}
+
+function getShell(): ShellBridge | null {
 	try {
-		const req: NodeRequire | undefined =
-			typeof require === "function" ? require : (window as unknown as { require?: NodeRequire }).require;
-		return req?.("electron")?.shell ?? null;
+		const req = getRendererRequire();
+		if (!req) return null;
+		const electron = req("electron") as { shell?: ShellBridge } | undefined;
+		return electron?.shell ?? null;
 	} catch {
 		return null;
 	}
@@ -373,8 +387,7 @@ export function makeDraggable(handle: HTMLElement, target: HTMLElement): void {
 		const rect = target.getBoundingClientRect();
 		const ox = evt.clientX - rect.left;
 		const oy = evt.clientY - rect.top;
-		target.style.position = "fixed";
-		target.style.margin = "0";
+		target.addClass("archify-drag-fixed");
 		// Pin the measured size: leaving a flex-centred element without it makes
 		// the element collapse to its content width once it becomes fixed.
 		target.style.width = `${Math.round(rect.width)}px`;
@@ -613,8 +626,12 @@ export class ArchifyHtmlView extends ItemView {
 			path: abs.path,
 			onRefresh: () => void this.renderPath(abs.path),
 			onSource: () => void openSourceDefinition(this.app, abs),
-			onSystem: () => openInSystemBrowser(this.app, abs),
-			onWindow: () => openInObsidianWindow(this.app, abs),
+			onSystem: () => {
+				void openInSystemBrowser(this.app, abs);
+			},
+			onWindow: () => {
+				void openInObsidianWindow(this.app, abs);
+			},
 		});
 
 		const { frame, dispose } = await createSandboxedFrame(this.plugin, abs);
@@ -650,8 +667,12 @@ export class ArchifyHtmlModal extends Modal {
 			path: this.file.path,
 			onRefresh: () => void this.render(),
 			onSource: () => void openSourceDefinition(this.app, this.file),
-			onSystem: () => openInSystemBrowser(this.app, this.file),
-			onWindow: () => openInObsidianWindow(this.app, this.file),
+			onSystem: () => {
+				void openInSystemBrowser(this.app, this.file);
+			},
+			onWindow: () => {
+				void openInObsidianWindow(this.app, this.file);
+			},
 		});
 
 		const box = this.contentEl.createDiv({ cls: "archify-frame-box" });
@@ -661,7 +682,7 @@ export class ArchifyHtmlModal extends Modal {
 	private async render(box?: HTMLElement): Promise<void> {
 		if (this.disposeFrame) this.disposeFrame();
 		this.disposeFrame = null;
-		const host = box ?? (this.contentEl.querySelector(".archify-frame-box") as HTMLElement | null);
+		const host = box ?? this.contentEl.querySelector<HTMLElement>(".archify-frame-box");
 		if (!host) return;
 		host.querySelector(".archify-html-frame")?.remove();
 		host.querySelector(".archify-resize-handle")?.remove();
@@ -692,11 +713,19 @@ export class InlineFrameChild extends MarkdownRenderChild {
 		super(containerEl);
 	}
 
-	async onload(): Promise<void> {
+	onload(): void {
+		void this.setup();
+	}
+
+	private async setup(): Promise<void> {
 		buildToolbar(this.containerEl, {
 			onSource: () => void openSourceDefinition(this.plugin.app, this.file),
-			onSystem: () => openInSystemBrowser(this.plugin.app, this.file),
-			onWindow: () => openInObsidianWindow(this.plugin.app, this.file),
+			onSystem: () => {
+				void openInSystemBrowser(this.plugin.app, this.file);
+			},
+			onWindow: () => {
+				void openInObsidianWindow(this.plugin.app, this.file);
+			},
 			onCollapse: () => this.collapse(),
 		});
 

@@ -1,4 +1,4 @@
-import { moment } from "obsidian";
+import { getLanguage, moment } from "obsidian";
 
 type Dict = Record<string, string>;
 
@@ -118,15 +118,14 @@ const STRINGS: Record<string, Dict> = { en, zh, "zh-tw": zhTw, ja };
 
 /**
  * Detect the interface language of the app and return it in canonical form.
- * Obsidian stores its UI language in localStorage (`language`); `moment.locale()`
- * is kept as a fallback since Obsidian syncs it to the UI language.
+ * `moment.locale()` is kept as a fallback since Obsidian syncs it to the UI language.
  */
 function getLocale(): string {
 	let raw = "";
 	try {
-		raw = window.localStorage.getItem("language") ?? "";
+		raw = getLanguage();
 	} catch {
-		// localStorage may be unavailable; fall back below
+		// getLanguage() is unavailable on very old versions; fall back below
 	}
 	if (!raw) raw = moment.locale() ?? "en";
 	const norm = raw.toLowerCase();

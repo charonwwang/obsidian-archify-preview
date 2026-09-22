@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting, SettingDefinitionItem } from "obsidian";
 import { t } from "./i18n";
 import type ArchifyHtmlPreviewPlugin from "./main";
 
@@ -27,6 +27,56 @@ export class ArchifySettingTab extends PluginSettingTab {
 		super(app, plugin);
 	}
 
+	/**
+	 * Declarative definitions (Obsidian 1.13+): they drive rendering and make
+	 * the settings discoverable in the app's settings search. `display()` below
+	 * is the imperative fallback for older versions; 1.13+ never calls it.
+	 */
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: t("settings.clickBehavior"),
+				desc: t("settings.clickBehavior.desc"),
+				control: {
+					type: "dropdown",
+					key: "openMode",
+					defaultValue: "tab",
+					options: {
+						tab: t("settings.mode.tab"),
+						modal: t("settings.mode.modal"),
+						inline: t("settings.mode.inline"),
+					},
+				},
+			},
+			{
+				name: t("settings.takeover"),
+				desc: t("settings.takeover.desc"),
+				control: { type: "toggle", key: "registerHtmlExtension", defaultValue: false },
+			},
+			{
+				name: t("settings.sameOrigin"),
+				desc: t("settings.sameOrigin.desc"),
+				control: { type: "toggle", key: "sandboxAllowSameOrigin", defaultValue: false },
+			},
+			{
+				name: t("settings.inlineHeight"),
+				desc: t("settings.inlineHeight.desc"),
+				control: { type: "slider", key: "inlineHeight", defaultValue: 560, min: 320, max: 1080, step: 20 },
+			},
+		];
+	}
+
+	/** Storage bridge for the declarative settings (keys match the settings interface). */
+	getControlValue(key: string): unknown {
+		return (this.plugin.settings as unknown as Record<string, unknown>)[key];
+	}
+
+	setControlValue(key: string, value: unknown): void {
+		(this.plugin.settings as unknown as Record<string, unknown>)[key] = value;
+		void this.plugin.saveSettings();
+	}
+
+	/** Imperative fallback for Obsidian versions older than 1.13. */
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
@@ -73,7 +123,6 @@ export class ArchifySettingTab extends PluginSettingTab {
 				s
 					.setLimits(320, 1080, 20)
 					.setValue(this.plugin.settings.inlineHeight)
-					.setDynamicTooltip()
 					.onChange(async (v) => {
 						this.plugin.settings.inlineHeight = v;
 						await this.plugin.saveSettings();
