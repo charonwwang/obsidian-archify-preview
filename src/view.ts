@@ -61,10 +61,11 @@ interface ClipboardRequest {
 }
 
 /**
- * Best-effort clipboard write. `navigator.clipboard` first; `execCommand` is
- * kept as a fallback because the Clipboard API rejects without a user gesture
- * in the calling document, while sandboxed-frame copy requests arrive via
- * `postMessage` and have no gesture in this frame.
+ * Best-effort clipboard write. `navigator.clipboard` first. Sandboxed-frame
+ * copy requests arrive via `postMessage`, so they carry no user gesture into
+ * this frame and the Clipboard API may reject; on the desktop runtime we then
+ * fall back to Electron's clipboard, which needs no gesture. Returns false
+ * only when neither path is available.
  */
 async function writeClipboard(text: string): Promise<boolean> {
 	try {
@@ -73,19 +74,18 @@ async function writeClipboard(text: string): Promise<boolean> {
 			return true;
 		}
 	} catch {
-		// fall through to the execCommand fallback
+		// fall through to the Electron clipboard fallback
 	}
 	try {
-		const ta = document.body.createEl("textarea", { cls: "archify-clip-input" });
-		ta.value = text;
-		ta.select();
-		// eslint-disable-next-line @typescript-eslint/no-deprecated -- gesture-less copy fallback for sandboxed frames
-		const ok = document.execCommand("copy");
-		ta.remove();
-		return !!ok;
+		const clip = getRendererClipboard();
+		if (clip) {
+			clip.writeText(text);
+			return true;
+		}
 	} catch {
-		return false;
+		// Electron bridge unavailable or threw — report failure below
 	}
+	return false;
 }
 
 /**
@@ -322,6 +322,11 @@ interface ShellBridge {
 	openPath?: (p: string) => unknown;
 }
 
+/** Minimal shape of the Electron `clipboard` module used as a gesture-less fallback. */
+interface RendererClipboard {
+	writeText: (text: string) => void;
+}
+
 /** Minimal shape of the renderer `process` object exposed by the desktop app. */
 interface RendererProcess {
 	platform?: string;
@@ -330,26 +335,38 @@ interface RendererProcess {
 
 /**
  * Typed accessor for the Node `require` exposed by the desktop runtime.
- * Resolved through `globalThis` so the code type-checks without Node typings
+ * Resolved through `window` so the code type-checks without Node typings
  * and never produces `any`-typed calls.
  */
 function getRendererRequire(): ((id: string) => unknown) | undefined {
-	const g = globalThis as unknown as { require?: (id: string) => unknown };
+	const g = window as unknown as { require?: (id: string) => unknown };
 	return typeof g.require === "function" ? g.require : undefined;
 }
 
 function getRendererProcess(): RendererProcess | undefined {
-	return (globalThis as unknown as { process?: RendererProcess }).process;
+	return (window as unknown as { process?: RendererProcess }).process;
 }
 
 function getShell(): ShellBridge | null {
 	try {
 		const req = getRendererRequire();
 		if (!req) return null;
-		const electron = req("electron") as { shell?: ShellBridge } | undefined;
+		const electron = req("electron") as { shell?: ShellBridge; clipboard?: RendererClipboard } | undefined;
 		return electron?.shell ?? null;
 	} catch {
 		return null;
+	}
+}
+
+/** Electron's clipboard module — a gesture-less clipboard fallback on desktop. */
+function getRendererClipboard(): RendererClipboard | undefined {
+	try {
+		const req = getRendererRequire();
+		if (!req) return undefined;
+		const electron = req("electron") as { clipboard?: RendererClipboard } | undefined;
+		return electron?.clipboard;
+	} catch {
+		return undefined;
 	}
 }
 
@@ -558,7 +575,7 @@ export interface ToolbarHandlers {
  */
 export function buildToolbar(host: HTMLElement, h: ToolbarHandlers): HTMLElement {
 	const bar = host.createDiv({ cls: "archify-toolbar" });
-	if (h.path) bar.createEl("span", { text: h.path, cls: "archify-path" });
+	if (h.path) bar.createSpan({ text: h.path, cls: "archify-path" });
 	const add = (label: string, fn: () => void) => {
 		const b = bar.createEl("button", { text: label, cls: "archify-btn" });
 		b.addEventListener("click", fn);

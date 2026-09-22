@@ -161,15 +161,6 @@
 
 /* ---------- 内部工具类 ---------- */
 
-/* 剪贴板回退用的隐藏文本域（样式以类声明，避免行内静态样式） */
-.archify-clip-input {
-	position: fixed;
-	top: 0;
-	left: 0;
-	opacity: 0;
-	pointer-events: none;
-}
-
 /* 拖拽开始：把目标钉成 fixed（覆盖 .modal 的居中布局） */
 .archify-drag-fixed,
 .modal.archify-drag-fixed {

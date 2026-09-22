@@ -1,4 +1,4 @@
-import { getLanguage, moment } from "obsidian";
+import { getLanguage, moment, requireApiVersion } from "obsidian";
 
 type Dict = Record<string, string>;
 
@@ -118,16 +118,16 @@ const STRINGS: Record<string, Dict> = { en, zh, "zh-tw": zhTw, ja };
 
 /**
  * Detect the interface language of the app and return it in canonical form.
- * `moment.locale()` is kept as a fallback since Obsidian syncs it to the UI language.
+ * `getLanguage()` requires Obsidian 1.8.7+; older builds are routed to
+ * `moment.locale()` instead, which Obsidian keeps in sync with the UI language.
  */
 function getLocale(): string {
 	let raw = "";
-	try {
+	if (requireApiVersion("1.8.7")) {
 		raw = getLanguage();
-	} catch {
-		// getLanguage() is unavailable on very old versions; fall back below
+	} else {
+		raw = moment.locale() ?? "en";
 	}
-	if (!raw) raw = moment.locale() ?? "en";
 	const norm = raw.toLowerCase();
 	if (STRINGS[norm]) return norm;
 	const base = norm.split("-")[0];
