@@ -1,5 +1,7 @@
 # Archify HTML Preview
 
+**English** | [简体中文](README.zh.md)
+
 > Click an [Archify](https://github.com/tt-a1i/archify) diagram thumbnail in your notes and explore its self-contained interactive HTML — theme toggle, pan/zoom, search, and Story mode all work — without leaving the app.
 
 ![demo](demo/demo.visual-check.1440x900.light.png)
@@ -34,12 +36,14 @@ See [`demo/demo.md`](demo/demo.md) for a working example of the Archify referenc
 No changes to your notes are required. Any "thumbnail linking an `.html` file" (the standard Archify output format) is enhanced automatically:
 
 ```markdown
-[![System architecture](风险检测/diagrams/system-architecture.visual-check.1440x900.light.png)](风险检测/diagrams/system-architecture.html)
+[![System architecture](architecture/diagrams/system-architecture.visual-check.1440x900.light.png)](architecture/diagrams/system-architecture.html)
 ```
 
 Click the thumbnail to open the interactive version inside the app. There is also a command: **Open active HTML file in the interactive preview**.
 
 ## Installation
+
+Requires Obsidian **1.4.0** or newer.
 
 ### From a release
 
@@ -76,7 +80,6 @@ click always opens a new tab, whatever the mode.
 | Take over `.html` files | Off | When on, double-clicking an `.html` file also opens the interactive preview (reload the plugin after changing). Mutually exclusive with HTML Viewer / Polyglot Renderer-style plugins |
 | Allow same-origin | Off | Lets previewed pages use `localStorage`, at the cost of the opaque-origin isolation |
 | Inline height | 560px | iframe height for inline mode (drag the bottom grip to adjust; it is remembered) |
-
 
 Everything an interactive artifact normally needs works in the preview:
 
@@ -118,6 +121,7 @@ through Obsidian theme variables, so light/dark themes follow automatically.
 
 The settings UI, commands, badges and notices follow the app's interface
 language automatically. Currently included: **English, 简体中文, 繁體中文, 日本語**.
+The full documentation is also available in [简体中文](README.zh.md).
 Contributions for other languages are welcome — add a dictionary in
 [`src/i18n.ts`](src/i18n.ts) and register it in the `STRINGS` map.
 
@@ -146,7 +150,6 @@ Contributions for other languages are welcome — add a dictionary in
 ## Credits
 
 - [Archify](https://github.com/tt-a1i/archify) by tt-a1i — the agent skill that produces these interactive architecture diagrams.
-- The design notes and research behind this plugin live in the companion document *调研报告-Obsidian内交互预览Archify.md* (Chinese) in the parent workspace.
 
 ## License
 
