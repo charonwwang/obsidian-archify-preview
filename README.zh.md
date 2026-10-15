@@ -2,9 +2,9 @@
 
 **[English](README.md)** | 简体中文
 
-> 在笔记中点击 [Archify](https://github.com/tt-a1i/archify) 架构图缩略图，即可在应用内直接浏览其自包含的交互式 HTML —— 主题切换、平移缩放、搜索、Story 模式全部可用，无需离开 Obsidian。
+> 在笔记中点击 [Archify](https://github.com/tt-a1i/archify) 架构图缩略图，即可在应用内直接浏览其自包含的交互式 HTML —— 主题切换、平移缩放、节点搜索、路径追踪、演示模式全部可用，无需离开 Obsidian。
 
-![demo](demo/demo.visual-check.1440x900.light.png)
+![在 Obsidian 中交互预览 Archify 流程图](demo/obsidian-preview.jpg)
 
 ## 为什么做这个插件
 
@@ -20,16 +20,18 @@ Archify 输出的架构图是一组产物，在 Markdown 里通常这样引用�
 
 ## 功能特性
 
-- **卡片识别** — 识别 `[![缩略图](x.png)](x.html)` 形式的链接，包括 Archify 的命名启发式（`*.visual-check.<宽>x<高>.<主题>.png` 且同目录存在 `*.archify.json`），悬停时显示「交互」徽标。
+- **卡片识别** — 识别 `[![缩略图](x.png)](x.html)` 形式的链接，包括 Archify 的命名启发式（`*.visual-check.<宽>x<高>.<主题>.png` 且同目录存在源定义 —— `<name>.json`、`candidate.json` 或旧版的 `<name>.archify.json`），悬停时显示「交互」徽标。
 - **缩略图修复** — 以「相对笔记所在目录」的语义重新解析图片路径，即使 Markdown 里用的是 GitHub 风格的相对路径，缩略图也能正常显示。
 - **一键交互预览** — 可在新标签页（默认）、模态窗、缩略图下方内联展开三种方式中打开。
-- **源定义链接** — 预览工具栏提供「源定义」，可打开同名的 `.archify.json`。
+- **源定义链接** — 预览工具栏提供「源定义」，可打开同目录的源定义（`<name>.json`、`candidate.json` 或旧版的 `<name>.archify.json`）。
 - **默认沙箱隔离** — 运行于 `sandbox="allow-scripts"`（不透明源），图表永远无法触及你的库文件。
 - **桌面与移动端通用** — 使用 Blob URL 而非 `file://`，两端行为完全一致（`isDesktopOnly: false`）。
 
+兼容 Archify **2.x 与 3.x** 输出产物（已针对 3.1 产物验证）；已生成的 HTML 保留其内嵌查看器，不受影响。
+
 ## 示例
 
-可运行的示例见 [`demo/demo.md`](demo/demo.md)：包含 Archify 引用格式的示例笔记、示例交互图（`demo.html`）和源定义（`demo.archify.json`）。
+可运行的示例见 [`demo/agent-tool-call.workflow.md`](demo/agent-tool-call.workflow.md)：包含 Archify 引用格式的示例笔记、真实的 Archify 3.1 交互图（`agent-tool-call.workflow.html`）及其类型化源定义（`agent-tool-call.workflow.json`）。
 
 ## 使用方法
 
@@ -82,10 +84,10 @@ npm run build
 
 交互产物常用的能力在预览中都能正常工作：
 
-- **导出**（`canvas.toBlob` + `<a download>`）—— 沙箱授予 `allow-downloads`
-- **分享类操作** —— 弹窗、模态（打印 / 确认）与表单均被允许
-- **复制链接 / 复制节点** —— 不透明源里不存在 `navigator.clipboard`，预览会注入运行时垫片，经 `postMessage` 把文本转发到插件侧真正可用的剪贴板
-- **状态持久化** —— 不透明源里 `localStorage` 会抛异常；垫片以内存存储兜底，产物照常工作
+- **导出**（PNG / SVG / WebM，经 `canvas.toBlob` / `MediaRecorder` + `<a download>`）—— 沙箱授予 `allow-downloads`
+- **对话框与表单** —— 弹窗、`print` / `confirm` 对话框与表单输入（复制链接输入框）均被允许
+- **复制链接** —— 不透明源里不存在 `navigator.clipboard`，预览会注入运行时垫片，经 `postMessage` 把文本转发到插件侧真正可用的剪贴板
+- **状态持久化** —— 不透明源里 `localStorage` 会抛异常；垫片以内存存储兜底，主题与视图状态照常保持
 
 **在浏览器打开** 会把文件交给真正的浏览器，依次尝试：直接启动已知浏览器可执行文件（Edge / Chrome / Firefox，然后是系统打开器）、Obsidian 的 `openWithDefaultApp`、Electron 的 `shell.openPath` / `shell.openExternal`（各自与 1.2 秒超时竞速，避免桥接卡死吞掉整个操作）、最后是 `app://` 资源 URL。成功则静默；只有全部失败才提示 —— 并复制绝对路径，方便你粘贴到地址栏。
 
@@ -100,7 +102,7 @@ npm run build
 
 - 增强卡片（徽标 / 内联展开）作用于阅读视图与悬停预览；在实时预览中，点击依赖「接管 `.html` 文件」设置。
 - 默认的不透明源沙箱下，预览内部无法使用 `localStorage` / `sessionStorage`（浏览器固有行为）。Archify 产物是自包含的，几乎不受影响；若图表确实需要存储，可开启「允许同源」。
-- `.archify.json` 后缀以 `json` 结尾，无法注册为独立文件类型（扩展名注册只看最后一段）—— 因此只提供「源定义」快捷入口。
+- 源定义是普通 `.json` 文件（`<name>.<type>.json`、`candidate.json` 或旧版的 `<name>.archify.json`），无法注册为独立文件类型（扩展名注册只看最后一段）—— 因此只提供「源定义」快捷入口。
 
 ## 本地化
 

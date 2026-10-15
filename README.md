@@ -2,9 +2,9 @@
 
 **English** | [简体中文](README.zh.md)
 
-> Click an [Archify](https://github.com/tt-a1i/archify) diagram thumbnail in your notes and explore its self-contained interactive HTML — theme toggle, pan/zoom, search, and Story mode all work — without leaving the app.
+> Click an [Archify](https://github.com/tt-a1i/archify) diagram thumbnail in your notes and explore its self-contained interactive HTML — theme toggle, pan/zoom, node search, route tracing, and Presentation mode all work — without leaving the app.
 
-![demo](demo/demo.visual-check.1440x900.light.png)
+![Archify diagram previewed inside Obsidian](demo/obsidian-preview.jpg)
 
 ## Why this exists
 
@@ -20,16 +20,18 @@ This plugin bridges exactly those gaps: it fixes up the thumbnail, detects Archi
 
 ## Features
 
-- **Card detection** — recognizes `[![thumbnail](x.png)](x.html)` links, including Archify's naming heuristic (`*.visual-check.<W>x<H>.<theme>.png` with a sibling `*.archify.json`), and shows an "Interactive" badge on hover.
+- **Card detection** — recognizes `[![thumbnail](x.png)](x.html)` links, including Archify's naming heuristic (`*.visual-check.<W>x<H>.<theme>.png` with a sibling source definition — `<name>.json`, `candidate.json`, or the legacy `<name>.archify.json`), and shows an "Interactive" badge on hover.
 - **Broken-thumbnail repair** — re-resolves image paths using "relative to the note" semantics, so thumbnails render even when the Markdown uses GitHub-style relative paths.
 - **One-click interactive preview** — open in a new tab (default), a modal, or expand inline beneath the thumbnail.
-- **Source definition link** — the preview toolbar offers "Source definition" to open the sibling `.archify.json`.
+- **Source definition link** — the preview toolbar offers "Source definition" to open the sibling source definition (`<name>.json`, `candidate.json`, or the legacy `<name>.archify.json`).
 - **Sandboxed by default** — runs in `sandbox="allow-scripts"` (opaque origin), so a diagram can never touch your vault files.
 - **Desktop and mobile** — uses Blob URLs rather than `file://`, so behavior is identical everywhere (`isDesktopOnly: false`).
 
+Compatible with Archify **2.x and 3.x** output bundles (verified against 3.1 artifacts); already generated HTML keeps its embedded viewer.
+
 ## Demo
 
-See [`demo/demo.md`](demo/demo.md) for a working example of the Archify reference format, with a sample interactive diagram (`demo.html`) and source definition (`demo.archify.json`).
+See [`demo/agent-tool-call.workflow.md`](demo/agent-tool-call.workflow.md) for a working example of the Archify reference format, with a real Archify 3.1 interactive diagram (`agent-tool-call.workflow.html`) and its typed source definition (`agent-tool-call.workflow.json`).
 
 ## Usage
 
@@ -83,13 +85,13 @@ click always opens a new tab, whatever the mode.
 
 Everything an interactive artifact normally needs works in the preview:
 
-- **Export** (`canvas.toBlob` + `<a download>`) — sandbox grants `allow-downloads`
-- **Share actions** — popups, modals (print / confirm) and forms are allowed
-- **Copy link / copy moment** — `navigator.clipboard` does not exist in an
+- **Export** (PNG / SVG / WebM via `canvas.toBlob` / `MediaRecorder` + `<a download>`) — sandbox grants `allow-downloads`
+- **Dialogs and forms** — popups, `print` / `confirm` dialogs and form inputs (copy-link fields) are allowed
+- **Copy link** — `navigator.clipboard` does not exist in an
   opaque origin, so the preview injects a runtime shim that forwards text to
   the plugin frame via `postMessage`, where the clipboard really works
 - **State persistence** — `localStorage` throws in an opaque origin; the shim
-  backs it with an in-memory store so artifacts keep working
+  backs it with an in-memory store so theme and view state keep working
 
 **Open in browser** hands the file to a real browser. It tries, in order:
 spawning a known browser executable directly (Edge / Chrome / Firefox, then the
@@ -115,7 +117,7 @@ through Obsidian theme variables, so light/dark themes follow automatically.
 
 - Enhanced cards (badge / inline expand) apply in Reading view and hover previews; in Live Preview, clicking relies on the "Take over `.html` files" setting.
 - With the default opaque-origin sandbox, `localStorage`/`sessionStorage` are unavailable inside the preview (inherent browser behavior). Archify artifacts are self-contained so this rarely matters; enable "Allow same-origin" if a diagram needs storage.
-- The `.archify.json` suffix ends in `json`, so it cannot be registered as its own file type (extension registration only looks at the last segment) — only the "Source definition" shortcut is provided.
+- Source definitions are plain `.json` files (`<name>.<type>.json`, `candidate.json`, or the legacy `<name>.archify.json`), so they cannot be registered as their own file type (extension registration only looks at the last segment) — only the "Source definition" shortcut is provided.
 
 ## Localization
 

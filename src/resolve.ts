@@ -7,7 +7,7 @@ export const HTML_LINK_RE = /\.html?$/i;
 export interface ArchifyMeta {
 	/** Parsed from `*.visual-check.<width>x<height>.<theme>.png` sidecar names. */
 	visualCheck: { size: string; theme: string } | null;
-	/** Path of the sibling `*.archify.json` source definition, when present. */
+	/** Path of the sibling source definition, when present. */
 	sourceJsonPath: string | null;
 }
 
@@ -77,12 +77,29 @@ export function parseArchifyMeta(app: App, imgSrc: string, target: TFile): Archi
 	const m = clean.match(/\.visual-check\.(\d+x\d+)\.(light|dark)\.png$/i);
 	if (m) visualCheck = { size: m[1], theme: m[2].toLowerCase() };
 
+	// Source definition lookup. Archify keeps the typed source beside the
+	// artifact; names evolved across versions:
+	//   1. `<name>.json` — the typed source beside `<name>.html`, including the
+	//      current `<name>.<type>.json` convention (`x.workflow.html` →
+	//      `x.workflow.json`).
+	//   2. `<name>.archify.json` — the legacy sidecar name used by older
+	//      bundles (and the plugin's own demo).
+	//   3. `candidate.json` — the Archify skill's default source filename in
+	//      its per-diagram work folder (`<slug>.html` + `candidate.json`).
 	const base = target.path.replace(/\.html?$/i, "");
-	const jsonPath = `${base}.archify.json`;
-	const json = app.vault.getAbstractFileByPath(normalizePath(jsonPath));
+	const dir = target.path.includes("/") ? target.path.slice(0, target.path.lastIndexOf("/")) : "";
+	const candidates = [`${base}.json`, `${base}.archify.json`, `${dir ? dir + "/" : ""}candidate.json`];
+	let sourceJsonPath: string | null = null;
+	for (const p of candidates) {
+		const json = app.vault.getAbstractFileByPath(normalizePath(p));
+		if (json instanceof TFile) {
+			sourceJsonPath = json.path;
+			break;
+		}
+	}
 
 	return {
 		visualCheck,
-		sourceJsonPath: json instanceof TFile ? json.path : null,
+		sourceJsonPath,
 	};
 }
